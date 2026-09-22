@@ -129,6 +129,130 @@ export type Database = {
           },
         ]
       }
+      consorcio_contemplacao: {
+        Row: {
+          cota_id: string
+          credito_liberado: number
+          criado_em: string
+          data: string
+          id: string
+          lance_id: string | null
+          modalidade: string
+        }
+        Insert: {
+          cota_id: string
+          credito_liberado: number
+          criado_em?: string
+          data: string
+          id?: string
+          lance_id?: string | null
+          modalidade: string
+        }
+        Update: {
+          cota_id?: string
+          credito_liberado?: number
+          criado_em?: string
+          data?: string
+          id?: string
+          lance_id?: string | null
+          modalidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consorcio_contemplacao_cota_id_fkey"
+            columns: ["cota_id"]
+            isOneToOne: true
+            referencedRelation: "cota_consorcio"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consorcio_contemplacao_lance_id_fkey"
+            columns: ["lance_id"]
+            isOneToOne: false
+            referencedRelation: "consorcio_lance"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consorcio_lance: {
+        Row: {
+          assembleia_data: string
+          cota_id: string
+          criado_em: string
+          id: string
+          status: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          assembleia_data: string
+          cota_id: string
+          criado_em?: string
+          id?: string
+          status?: string
+          tipo: string
+          valor: number
+        }
+        Update: {
+          assembleia_data?: string
+          cota_id?: string
+          criado_em?: string
+          id?: string
+          status?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consorcio_lance_cota_id_fkey"
+            columns: ["cota_id"]
+            isOneToOne: false
+            referencedRelation: "cota_consorcio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consorcio_parcela: {
+        Row: {
+          cota_id: string
+          criado_em: string
+          id: string
+          numero: number
+          pago_em: string | null
+          status: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          cota_id: string
+          criado_em?: string
+          id?: string
+          numero: number
+          pago_em?: string | null
+          status?: string
+          valor: number
+          vencimento: string
+        }
+        Update: {
+          cota_id?: string
+          criado_em?: string
+          id?: string
+          numero?: number
+          pago_em?: string | null
+          status?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consorcio_parcela_cota_id_fkey"
+            columns: ["cota_id"]
+            isOneToOne: false
+            referencedRelation: "cota_consorcio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contrato: {
         Row: {
           criado_em: string
@@ -180,6 +304,89 @@ export type Database = {
             columns: ["proposta_id"]
             isOneToOne: true
             referencedRelation: "proposta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cota_consorcio: {
+        Row: {
+          administradora_id: string
+          atualizado_em: string
+          contrato_id: string
+          credito: number
+          criado_em: string
+          data_adesao: string
+          grupo: string
+          id: string
+          marca_id: number
+          numero_cota: string
+          plano_id: string
+          prazo_meses: number
+          status: string
+          taxa_administracao_percentual: number
+          valor_parcela: number
+        }
+        Insert: {
+          administradora_id: string
+          atualizado_em?: string
+          contrato_id: string
+          credito: number
+          criado_em?: string
+          data_adesao: string
+          grupo: string
+          id?: string
+          marca_id: number
+          numero_cota: string
+          plano_id: string
+          prazo_meses: number
+          status?: string
+          taxa_administracao_percentual: number
+          valor_parcela: number
+        }
+        Update: {
+          administradora_id?: string
+          atualizado_em?: string
+          contrato_id?: string
+          credito?: number
+          criado_em?: string
+          data_adesao?: string
+          grupo?: string
+          id?: string
+          marca_id?: number
+          numero_cota?: string
+          plano_id?: string
+          prazo_meses?: number
+          status?: string
+          taxa_administracao_percentual?: number
+          valor_parcela?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cota_consorcio_administradora_id_fkey"
+            columns: ["administradora_id"]
+            isOneToOne: false
+            referencedRelation: "administradora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cota_consorcio_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contrato"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cota_consorcio_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "marca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cota_consorcio_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "plano_consorcio_administradora"
             referencedColumns: ["id"]
           },
         ]
@@ -598,6 +805,93 @@ export type Database = {
           },
         ]
       }
+      proposta_consorcio_condicao: {
+        Row: {
+          administradora_id: string
+          administradora_nome: string
+          bonus_campanha_percentual: number
+          comissao_percentual: number
+          credito: number
+          criado_em: string
+          id: string
+          nome_plano: string
+          oferta_id: string
+          plano_id: string
+          prazo_meses: number
+          proposta_id: string
+          recomendacao_id: string | null
+          taxa_administracao_percentual: number
+        }
+        Insert: {
+          administradora_id: string
+          administradora_nome: string
+          bonus_campanha_percentual?: number
+          comissao_percentual: number
+          credito: number
+          criado_em?: string
+          id?: string
+          nome_plano: string
+          oferta_id: string
+          plano_id: string
+          prazo_meses: number
+          proposta_id: string
+          recomendacao_id?: string | null
+          taxa_administracao_percentual: number
+        }
+        Update: {
+          administradora_id?: string
+          administradora_nome?: string
+          bonus_campanha_percentual?: number
+          comissao_percentual?: number
+          credito?: number
+          criado_em?: string
+          id?: string
+          nome_plano?: string
+          oferta_id?: string
+          plano_id?: string
+          prazo_meses?: number
+          proposta_id?: string
+          recomendacao_id?: string | null
+          taxa_administracao_percentual?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposta_consorcio_condicao_administradora_id_fkey"
+            columns: ["administradora_id"]
+            isOneToOne: false
+            referencedRelation: "administradora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposta_consorcio_condicao_oferta_id_fkey"
+            columns: ["oferta_id"]
+            isOneToOne: false
+            referencedRelation: "oferta_administradora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposta_consorcio_condicao_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "plano_consorcio_administradora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposta_consorcio_condicao_proposta_id_fkey"
+            columns: ["proposta_id"]
+            isOneToOne: true
+            referencedRelation: "proposta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposta_consorcio_condicao_recomendacao_id_fkey"
+            columns: ["recomendacao_id"]
+            isOneToOne: false
+            referencedRelation: "recomendacao_consorcio"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposta_item: {
         Row: {
           criado_em: string
@@ -632,6 +926,77 @@ export type Database = {
             columns: ["proposta_id"]
             isOneToOne: false
             referencedRelation: "proposta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recomendacao_consorcio: {
+        Row: {
+          credito_desejado: number
+          criado_em: string
+          criado_por: string
+          id: string
+          marca_id: number
+          oportunidade_id: string
+          peso_adequacao: number
+          peso_resultado_comercial: number
+          politica_id: string
+          prazo_desejado_meses: number
+          resultado: Json
+        }
+        Insert: {
+          credito_desejado: number
+          criado_em?: string
+          criado_por: string
+          id?: string
+          marca_id: number
+          oportunidade_id: string
+          peso_adequacao: number
+          peso_resultado_comercial: number
+          politica_id: string
+          prazo_desejado_meses: number
+          resultado: Json
+        }
+        Update: {
+          credito_desejado?: number
+          criado_em?: string
+          criado_por?: string
+          id?: string
+          marca_id?: number
+          oportunidade_id?: string
+          peso_adequacao?: number
+          peso_resultado_comercial?: number
+          politica_id?: string
+          prazo_desejado_meses?: number
+          resultado?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recomendacao_consorcio_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuario_interno"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recomendacao_consorcio_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "marca"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recomendacao_consorcio_oportunidade_id_fkey"
+            columns: ["oportunidade_id"]
+            isOneToOne: false
+            referencedRelation: "oportunidade"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recomendacao_consorcio_politica_id_fkey"
+            columns: ["politica_id"]
+            isOneToOne: false
+            referencedRelation: "politica_recomendacao_consorcio"
             referencedColumns: ["id"]
           },
         ]
