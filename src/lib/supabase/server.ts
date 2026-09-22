@@ -13,9 +13,15 @@ export async function createServerSupabaseClient() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Called from a Server Component — safe to ignore when middleware
+            // is refreshing the session (middleware doesn't exist yet in this
+            // branch; this guard just prevents a hard crash until it does).
+          }
         },
       },
     }
