@@ -6,3 +6,9 @@ export const recomendarAdministradorasSchema = z.object({
 });
 
 export type RecomendarAdministradorasInput = z.infer<typeof recomendarAdministradorasSchema>;
+
+export const registrarRecomendacaoSchema = recomendarAdministradorasSchema.extend({
+  oportunidadeId: z.string().uuid(),
+});
+
+export type RegistrarRecomendacaoInput = z.infer<typeof registrarRecomendacaoSchema>;

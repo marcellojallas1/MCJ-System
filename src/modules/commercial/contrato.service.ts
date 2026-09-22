@@ -34,3 +34,17 @@ export async function criarContrato(
   if (erroContrato) throw erroContrato;
   return contrato;
 }
+
+export async function obterContrato(
+  client: SupabaseClient<Database>,
+  contratoId: string
+): Promise<Contrato> {
+  const { data, error } = await client
+    .from("contrato")
+    .select("*")
+    .eq("id", contratoId)
+    .single();
+
+  if (error) throw error;
+  return data;
+}

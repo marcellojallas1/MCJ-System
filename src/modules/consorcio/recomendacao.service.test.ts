@@ -8,6 +8,7 @@ import {
 } from "./administradora.service";
 import { criarOfertaAdministradora, validarOferta } from "./oferta.service";
 import { recomendarAdministradoras } from "./recomendacao.service";
+import { amanhaIso } from "./test-fixtures";
 
 const SUPABASE_URL = "http://127.0.0.1:54321";
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -67,7 +68,7 @@ beforeAll(async () => {
 });
 
 describe("recomendacao.service", () => {
-  it("classifica ofertas elegíveis por 50% adequação + 50% resultado comercial", async () => {
+  it("classifica ofertas elegíveis pela ponderação vigente de adequação e resultado comercial", async () => {
     const sufixo = Date.now();
 
     const admA = await criarAdministradora(clienteGestor, { nome: `Administradora A ${sufixo}` });
@@ -95,16 +96,25 @@ describe("recomendacao.service", () => {
       planoId: planoA.id,
       comissaoPercentual: 3,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const ofertaB = await criarOfertaAdministradora(clienteGestor, {
       administradoraId: admB.id,
       planoId: planoB.id,
       comissaoPercentual: 6,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     await validarOferta(clienteGestor, ofertaA.id);
     await validarOferta(clienteGestor, ofertaB.id);
+
+    const { data: politica, error: erroPolitica } = await clienteGestor
+      .from("politica_recomendacao_consorcio")
+      .select("peso_adequacao, peso_resultado_comercial")
+      .eq("vigente", true)
+      .single();
+    if (erroPolitica) throw erroPolitica;
 
     const resultado = await recomendarAdministradoras(clienteGestor, {
       creditoDesejado: 100000,
@@ -118,9 +128,16 @@ describe("recomendacao.service", () => {
     expect(resultadoB).toBeDefined();
     expect(resultadoA!.adequacao).toBe(1);
     expect(resultadoB!.adequacao).toBeCloseTo(1 - 20 / 60, 5);
-    expect(resultadoB!.resultadoComercial).toBe(1);
-    expect(resultadoA!.resultadoComercial).toBe(0);
-    expect(resultadoB!.scoreFinal).toBeGreaterThan(resultadoA!.scoreFinal);
+    // resultadoComercial é normalizado min-max entre TODAS as ofertas elegíveis
+    // no banco (compartilhado entre suítes), então só a ordem relativa e a
+    // fórmula de ponderação são verificadas aqui — não valores absolutos.
+    expect(resultadoB!.resultadoComercial).toBeGreaterThan(resultadoA!.resultadoComercial);
+    for (const r of [resultadoA!, resultadoB!]) {
+      expect(r.scoreFinal).toBeCloseTo(
+        politica.peso_adequacao * r.adequacao + politica.peso_resultado_comercial * r.resultadoComercial,
+        10
+      );
+    }
   });
 
   it("exclui ofertas fora da faixa de crédito e ofertas não validadas", async () => {
@@ -142,6 +159,7 @@ describe("recomendacao.service", () => {
       planoId: planoForaFaixa.id,
       comissaoPercentual: 10,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     await validarOferta(clienteGestor, ofertaForaFaixa.id);
 
@@ -158,6 +176,7 @@ describe("recomendacao.service", () => {
       planoId: planoNaoValidado.id,
       comissaoPercentual: 10,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     const resultado = await recomendarAdministradoras(clienteGestor, {
@@ -210,12 +229,14 @@ describe("recomendacao.service", () => {
       campanhaId: campanhaVencida.id,
       comissaoPercentual: 3,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const ofertaSemCampanha = await criarOfertaAdministradora(clienteGestor, {
       administradoraId: admSemCampanha.id,
       planoId: planoSemCampanha.id,
       comissaoPercentual: 4,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     await validarOferta(clienteGestor, ofertaComCampanha.id);
@@ -271,12 +292,14 @@ describe("recomendacao.service", () => {
       planoId: planoA.id,
       comissaoPercentual: 3,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const ofertaB = await criarOfertaAdministradora(clienteGestor, {
       administradoraId: admB.id,
       planoId: planoB.id,
       comissaoPercentual: 6,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     await validarOferta(clienteGestor, ofertaA.id);

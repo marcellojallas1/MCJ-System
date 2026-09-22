@@ -34,6 +34,20 @@ export async function criarOportunidade(
   return data;
 }
 
+export async function obterOportunidade(
+  client: SupabaseClient<Database>,
+  oportunidadeId: string
+): Promise<Oportunidade> {
+  const { data, error } = await client
+    .from("oportunidade")
+    .select("*")
+    .eq("id", oportunidadeId)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function listarOportunidades(
   client: SupabaseClient<Database>
 ): Promise<Oportunidade[]> {
