@@ -56,7 +56,9 @@ export async function calcularRecomendacao(
 
   const { data: ofertas, error: erroOfertas } = await client
     .from("oferta_administradora")
-    .select("id, administradora_id, plano_id, comissao_percentual, campanha_id, vigencia_inicio, vigencia_fim")
+    .select(
+      "id, comissao_percentual, administradora:administradora_id(id, nome, situacao), plano:plano_id(id, credito_min, credito_max, prazo_meses), campanha:campanha_id(bonus_percentual, vigencia_inicio, vigencia_fim)"
+    )
     .eq("estado", "validado")
     .lte("vigencia_inicio", hoje)
     .or(`vigencia_fim.is.null,vigencia_fim.gte.${hoje}`)
@@ -65,41 +67,10 @@ export async function calcularRecomendacao(
   if (erroOfertas) throw erroOfertas;
   if (!ofertas || ofertas.length === 0) return { politica, resultados: [] };
 
-  const administradoraIds = [...new Set(ofertas.map((o) => o.administradora_id))];
-  const planoIds = [...new Set(ofertas.map((o) => o.plano_id))];
-  const campanhaIds = [
-    ...new Set(ofertas.map((o) => o.campanha_id).filter((id): id is string => id != null)),
-  ];
-
-  const { data: administradoras, error: erroAdm } = await client
-    .from("administradora")
-    .select("id, nome, situacao")
-    .in("id", administradoraIds);
-  if (erroAdm) throw erroAdm;
-
-  const { data: planos, error: erroPlanos } = await client
-    .from("plano_consorcio_administradora")
-    .select("id, credito_min, credito_max, prazo_meses")
-    .in("id", planoIds);
-  if (erroPlanos) throw erroPlanos;
-
-  const { data: campanhas, error: erroCampanhas } =
-    campanhaIds.length > 0
-      ? await client
-          .from("campanha_incentivo")
-          .select("id, bonus_percentual, vigencia_inicio, vigencia_fim")
-          .in("id", campanhaIds)
-      : { data: [], error: null };
-  if (erroCampanhas) throw erroCampanhas;
-
-  const administradoraPorId = new Map((administradoras ?? []).map((a) => [a.id, a]));
-  const planoPorId = new Map((planos ?? []).map((p) => [p.id, p]));
-  const campanhaPorId = new Map((campanhas ?? []).map((c) => [c.id, c]));
-
   const elegiveis = ofertas
     .map((oferta) => {
-      const administradora = administradoraPorId.get(oferta.administradora_id);
-      const plano = planoPorId.get(oferta.plano_id);
+      const administradora = oferta.administradora;
+      const plano = oferta.plano;
       if (!administradora || !plano) {
         throw new Error(
           `Inconsistência de dados: oferta ${oferta.id} referencia administradora ou plano inexistente`
@@ -112,7 +83,7 @@ export async function calcularRecomendacao(
       )
         return null;
 
-      const campanha = oferta.campanha_id ? campanhaPorId.get(oferta.campanha_id) : undefined;
+      const campanha = oferta.campanha ?? undefined;
       const campanhaVigente =
         campanha !== undefined && estaVigente(campanha.vigencia_inicio, campanha.vigencia_fim, hoje);
       const comissaoEfetiva = oferta.comissao_percentual + (campanhaVigente ? campanha.bonus_percentual : 0);
