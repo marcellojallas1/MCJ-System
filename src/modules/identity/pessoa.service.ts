@@ -1,22 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 import { criarPessoaFisicaSchema, type CriarPessoaFisicaInput } from "./pessoa.schema";
 
-export interface PessoaFisica {
-  id: string;
-  mcj_id: string;
-  nome_completo: string;
-  cpf: string | null;
-  data_nascimento: string | null;
-  email: string | null;
-  telefone_whatsapp: string | null;
-  marca_entrada_id: number;
-  origem_primeiro_contato: string | null;
-  criado_em: string;
-  atualizado_em: string;
-}
+export type PessoaFisica = Database["public"]["Tables"]["pessoa_fisica"]["Row"];
 
 export async function criarPessoaFisica(
-  client: SupabaseClient,
+  client: SupabaseClient<Database>,
   input: CriarPessoaFisicaInput
 ): Promise<PessoaFisica> {
   const dadosValidados = criarPessoaFisicaSchema.parse(input);
@@ -35,11 +24,11 @@ export async function criarPessoaFisica(
     .single();
 
   if (error) throw error;
-  return data as PessoaFisica;
+  return data;
 }
 
-export async function listarPessoasFisicas(client: SupabaseClient): Promise<PessoaFisica[]> {
+export async function listarPessoasFisicas(client: SupabaseClient<Database>): Promise<PessoaFisica[]> {
   const { data, error } = await client.from("pessoa_fisica").select("*");
   if (error) throw error;
-  return data as PessoaFisica[];
+  return data;
 }
