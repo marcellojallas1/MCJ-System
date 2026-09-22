@@ -33,5 +33,11 @@ export async function criarOfertaManualAction(formData: FormData) {
 export async function extrairBoletimAction(
   textoBoletim: string
 ): Promise<ExtracaoOfertaBoletim> {
+  const client = await createServerSupabaseClient();
+  const { data: userData, error: userError } = await client.auth.getUser();
+  if (userError) throw userError;
+  if (!userData.user) throw new Error("não autenticado");
+  if (textoBoletim.length > 20_000) throw new Error("boletim muito longo");
+
   return processarBoletim(textoBoletim);
 }
