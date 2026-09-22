@@ -16,7 +16,8 @@ create table cota_consorcio (
   status text not null default 'ativa' check (status in ('ativa', 'contemplada', 'cancelada')),
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now(),
-  unique (administradora_id, grupo, numero_cota)
+  unique (administradora_id, grupo, numero_cota),
+  unique (contrato_id)
 );
 
 alter table cota_consorcio enable row level security;
@@ -52,14 +53,8 @@ with check (
   )
 );
 
--- UPDATE só altera status/atualizado_em (grant de coluna abaixo), então
--- contrato_id e as condições copiadas não podem ser reapontadas/editadas;
--- a política precisa apenas do acesso à marca.
-create policy "update_cota_consorcio_por_marca"
-on cota_consorcio for update
-to authenticated
-using (public.tem_acesso_marca(marca_id))
-with check (public.tem_acesso_marca(marca_id));
+-- Placed after consorcio_contemplacao further below (like update_consorcio_lance_por_marca),
+-- because the with check clause needs to reference that table.
 
 revoke update on table public.cota_consorcio from anon, authenticated;
 grant update (status, atualizado_em) on table public.cota_consorcio to authenticated;
@@ -107,9 +102,12 @@ with check (
     where ct.id = consorcio_parcela.cota_id
       and public.tem_acesso_marca(ct.marca_id)
       and consorcio_parcela.numero <= ct.prazo_meses
+      and consorcio_parcela.valor = ct.valor_parcela
+      and consorcio_parcela.status = 'prevista'
   )
 );
 
+-- Uma parcela paga é terminal: só pode ser mudada enquanto 'prevista'.
 create policy "update_consorcio_parcela_por_marca"
 on consorcio_parcela for update
 to authenticated
@@ -119,6 +117,7 @@ using (
     where ct.id = consorcio_parcela.cota_id
       and public.tem_acesso_marca(ct.marca_id)
   )
+  and consorcio_parcela.status = 'prevista'
 )
 with check (
   exists (
@@ -232,6 +231,24 @@ with check (
 create trigger consorcio_contemplacao_auditoria
 after insert or update or delete on consorcio_contemplacao
 for each row execute function public.registrar_auditoria();
+
+-- Placed after consorcio_contemplacao table because it references that table in the using/with
+-- check clauses. Invariants: only an 'ativa' cota can change status (USING) — 'contemplada' and
+-- 'cancelada' are terminal; and a row may only claim status = 'contemplada' exactly when a
+-- consorcio_contemplacao row for it already exists (WITH CHECK) — that row is what the
+-- aplicar_contemplacao trigger inserts-then-updates-from in the same transaction, so the check
+-- passes for the trigger's own UPDATE but rejects a client trying to set 'contemplada' directly.
+create policy "update_cota_consorcio_por_marca"
+on cota_consorcio for update
+to authenticated
+using (public.tem_acesso_marca(marca_id) and status = 'ativa')
+with check (
+  public.tem_acesso_marca(marca_id)
+  and (status = 'contemplada') = exists (
+    select 1 from consorcio_contemplacao cc
+    where cc.cota_id = cota_consorcio.id
+  )
+);
 
 -- Placed after consorcio_contemplacao table because it references that table in the with check clause.
 -- 'vencedor' is required exactly when a contemplação references this lance — only the

@@ -371,7 +371,7 @@ export type Database = {
           {
             foreignKeyName: "cota_consorcio_contrato_id_fkey"
             columns: ["contrato_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "contrato"
             referencedColumns: ["id"]
           },

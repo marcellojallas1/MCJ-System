@@ -136,6 +136,27 @@ describe("criarCotaConsorcio", () => {
     ).rejects.toThrow();
   });
 
+  it("recusa criar uma segunda cota para o mesmo contrato", async () => {
+    const { contrato } = await prepararContratoConsorcio(clienteGestor, clienteConsultor);
+    await criarCotaConsorcio(clienteConsultor, {
+      contratoId: contrato.id,
+      grupo: grupoUnico(),
+      numeroCota: "0001",
+      valorParcela: 1000,
+      dataAdesao: "2031-01-10",
+    });
+
+    await expect(
+      criarCotaConsorcio(clienteConsultor, {
+        contratoId: contrato.id,
+        grupo: grupoUnico(),
+        numeroCota: "0002",
+        valorParcela: 1000,
+        dataAdesao: "2031-01-10",
+      })
+    ).rejects.toThrow("O contrato já possui cota");
+  });
+
   it("grant de coluna impede editar as condições da cota via UPDATE", async () => {
     const { contrato } = await prepararContratoConsorcio(clienteGestor, clienteConsultor);
     const cota = await criarCotaConsorcio(clienteConsultor, {
@@ -175,5 +196,29 @@ describe("registrarPagamentoParcela", () => {
     const parcelas = await listarParcelas(clienteConsultor, cota.id);
     expect(parcelas[0].status).toBe("paga");
     expect(parcelas[1].status).toBe("prevista");
+  });
+
+  it("RLS impede reverter uma parcela paga para prevista", async () => {
+    const { contrato } = await prepararContratoConsorcio(clienteGestor, clienteConsultor);
+    const cota = await criarCotaConsorcio(clienteConsultor, {
+      contratoId: contrato.id,
+      grupo: grupoUnico(),
+      numeroCota: "0001",
+      valorParcela: 1000,
+      dataAdesao: "2031-01-10",
+    });
+
+    const paga = await registrarPagamentoParcela(clienteConsultor, cota.parcelas[0].id, {
+      pagoEm: "2031-01-09",
+    });
+    expect(paga.status).toBe("paga");
+
+    await clienteConsultor
+      .from("consorcio_parcela")
+      .update({ status: "prevista", pago_em: null })
+      .eq("id", paga.id);
+
+    const parcelas = await listarParcelas(clienteConsultor, cota.id);
+    expect(parcelas[0].status).toBe("paga");
   });
 });

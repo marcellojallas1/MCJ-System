@@ -192,4 +192,39 @@ describe("lances e contemplação", () => {
     if (erroLeitura) throw erroLeitura;
     expect(lanceRelido.status).toBe("vencedor");
   });
+
+  it("RLS impede reativar cota contemplada", async () => {
+    const cota = await criarCotaAtiva();
+    await registrarContemplacao(clienteConsultor, {
+      cotaId: cota.id,
+      data: "2031-02-15",
+      modalidade: "sorteio",
+      creditoLiberado: 100000,
+    });
+    expect((await obterCota(clienteConsultor, cota.id)).status).toBe("contemplada");
+
+    const { data, error } = await clienteConsultor
+      .from("cota_consorcio")
+      .update({ status: "ativa" })
+      .eq("id", cota.id)
+      .select();
+
+    // USING falha (status não é 'ativa'), então o PostgREST não retorna erro:
+    // apenas zero linhas afetadas. Por isso a asserção real é no re-read.
+    expect(error !== null || (data ?? []).length === 0).toBe(true);
+    expect(data ?? []).toHaveLength(0);
+    expect((await obterCota(clienteConsultor, cota.id)).status).toBe("contemplada");
+  });
+
+  it("RLS impede marcar cota como contemplada sem contemplação", async () => {
+    const cota = await criarCotaAtiva();
+
+    const { error } = await clienteConsultor
+      .from("cota_consorcio")
+      .update({ status: "contemplada" })
+      .eq("id", cota.id);
+
+    expect(error).not.toBeNull();
+    expect((await obterCota(clienteConsultor, cota.id)).status).toBe("ativa");
+  });
 });

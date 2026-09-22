@@ -29,6 +29,16 @@ export async function criarCotaConsorcio(
     throw new Error("O contrato não possui condição de consórcio");
   }
 
+  const { data: cotaExistente, error: erroCotaExistente } = await client
+    .from("cota_consorcio")
+    .select("id")
+    .eq("contrato_id", contrato.id)
+    .maybeSingle();
+  if (erroCotaExistente) throw erroCotaExistente;
+  if (cotaExistente) {
+    throw new Error("O contrato já possui cota");
+  }
+
   const { data: cota, error: erroCota } = await client
     .from("cota_consorcio")
     .insert({
