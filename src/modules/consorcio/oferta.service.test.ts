@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { criarAdministradora, criarPlanoConsorcio } from "./administradora.service";
+import {
+  criarAdministradora,
+  criarPlanoConsorcio,
+  criarCampanhaIncentivo,
+} from "./administradora.service";
 import { criarOfertaAdministradora, validarOferta } from "./oferta.service";
 
 const SUPABASE_URL = "http://127.0.0.1:54321";
@@ -119,5 +123,66 @@ describe("oferta.service", () => {
     });
 
     await expect(validarOferta(clienteConsultor, oferta.id)).rejects.toThrow();
+  });
+
+  it("RLS rejeita oferta cujo plano pertence a uma administradora diferente da informada", async () => {
+    const sufixo = Date.now();
+    const administradoraA = await criarAdministradora(clienteGestor, {
+      nome: `Administradora Consistencia A ${sufixo}`,
+    });
+    const administradoraB = await criarAdministradora(clienteGestor, {
+      nome: `Administradora Consistencia B ${sufixo}`,
+    });
+    const planoB = await criarPlanoConsorcio(clienteGestor, {
+      administradoraId: administradoraB.id,
+      nomePlano: "Plano Consistencia B",
+      creditoMin: 50000,
+      creditoMax: 150000,
+      prazoMeses: 60,
+      taxaAdministracaoPercentual: 18,
+    });
+
+    await expect(
+      criarOfertaAdministradora(clienteConsultor, {
+        administradoraId: administradoraA.id,
+        planoId: planoB.id,
+        comissaoPercentual: 4,
+        fonte: "manual",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("RLS rejeita oferta cuja campanha pertence a uma administradora diferente da informada", async () => {
+    const sufixo = Date.now();
+    const administradoraA = await criarAdministradora(clienteGestor, {
+      nome: `Administradora Consistencia Campanha A ${sufixo}`,
+    });
+    const administradoraB = await criarAdministradora(clienteGestor, {
+      nome: `Administradora Consistencia Campanha B ${sufixo}`,
+    });
+    const planoA = await criarPlanoConsorcio(clienteGestor, {
+      administradoraId: administradoraA.id,
+      nomePlano: "Plano Consistencia Campanha A",
+      creditoMin: 50000,
+      creditoMax: 150000,
+      prazoMeses: 60,
+      taxaAdministracaoPercentual: 18,
+    });
+    const campanhaB = await criarCampanhaIncentivo(clienteGestor, {
+      administradoraId: administradoraB.id,
+      nome: "Campanha Consistencia B",
+      bonusPercentual: 2,
+      vigenciaInicio: "2020-01-01",
+    });
+
+    await expect(
+      criarOfertaAdministradora(clienteConsultor, {
+        administradoraId: administradoraA.id,
+        planoId: planoA.id,
+        campanhaId: campanhaB.id,
+        comissaoPercentual: 4,
+        fonte: "manual",
+      })
+    ).rejects.toThrow();
   });
 });
