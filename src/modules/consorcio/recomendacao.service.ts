@@ -35,7 +35,9 @@ export async function recomendarAdministradoras(
     .select("id, administradora_id, plano_id, comissao_percentual, campanha_id, vigencia_inicio, vigencia_fim")
     .eq("estado", "validado")
     .lte("vigencia_inicio", hoje)
-    .or(`vigencia_fim.is.null,vigencia_fim.gte.${hoje}`);
+    .or(`vigencia_fim.is.null,vigencia_fim.gte.${hoje}`)
+    .order("id")
+    .limit(1000);
   if (erroOfertas) throw erroOfertas;
   if (!ofertas || ofertas.length === 0) return [];
 
@@ -59,7 +61,10 @@ export async function recomendarAdministradoras(
 
   const { data: campanhas, error: erroCampanhas } =
     campanhaIds.length > 0
-      ? await client.from("campanha_incentivo").select("id, bonus_percentual").in("id", campanhaIds)
+      ? await client
+          .from("campanha_incentivo")
+          .select("id, bonus_percentual, vigencia_inicio, vigencia_fim")
+          .in("id", campanhaIds)
       : { data: [], error: null };
   if (erroCampanhas) throw erroCampanhas;
 
@@ -71,7 +76,11 @@ export async function recomendarAdministradoras(
     .map((oferta) => {
       const administradora = administradoraPorId.get(oferta.administradora_id);
       const plano = planoPorId.get(oferta.plano_id);
-      if (!administradora || !plano) return null;
+      if (!administradora || !plano) {
+        throw new Error(
+          `Inconsistência de dados: oferta ${oferta.id} referencia administradora ou plano inexistente`
+        );
+      }
       if (administradora.situacao !== "ativa") return null;
       if (
         dadosValidados.creditoDesejado < plano.credito_min ||
@@ -80,7 +89,11 @@ export async function recomendarAdministradoras(
         return null;
 
       const campanha = oferta.campanha_id ? campanhaPorId.get(oferta.campanha_id) : undefined;
-      const comissaoEfetiva = oferta.comissao_percentual + (campanha?.bonus_percentual ?? 0);
+      const campanhaVigente =
+        campanha !== undefined &&
+        campanha.vigencia_inicio <= hoje &&
+        (campanha.vigencia_fim === null || campanha.vigencia_fim >= hoje);
+      const comissaoEfetiva = oferta.comissao_percentual + (campanhaVigente ? campanha.bonus_percentual : 0);
 
       return {
         ofertaId: oferta.id,

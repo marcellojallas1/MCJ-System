@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { criarAdministradora, criarPlanoConsorcio } from "./administradora.service";
+import {
+  criarAdministradora,
+  criarPlanoConsorcio,
+  criarCampanhaIncentivo,
+} from "./administradora.service";
 import { criarOfertaAdministradora, validarOferta } from "./oferta.service";
 import { recomendarAdministradoras } from "./recomendacao.service";
 
@@ -163,5 +167,158 @@ describe("recomendacao.service", () => {
 
     expect(resultado.some((r) => r.ofertaId === ofertaForaFaixa.id)).toBe(false);
     expect(resultado.some((r) => r.ofertaId === ofertaNaoValidada.id)).toBe(false);
+  });
+
+  it("não aplica bônus de campanha vencida à comissão efetiva", async () => {
+    const sufixo = Date.now();
+
+    const admComCampanha = await criarAdministradora(clienteGestor, {
+      nome: `Administradora Campanha Vencida ${sufixo}`,
+    });
+    const admSemCampanha = await criarAdministradora(clienteGestor, {
+      nome: `Administradora Sem Campanha ${sufixo}`,
+    });
+
+    const planoComCampanha = await criarPlanoConsorcio(clienteGestor, {
+      administradoraId: admComCampanha.id,
+      nomePlano: "Plano Campanha Vencida",
+      creditoMin: 50000,
+      creditoMax: 150000,
+      prazoMeses: 60,
+      taxaAdministracaoPercentual: 18,
+    });
+    const planoSemCampanha = await criarPlanoConsorcio(clienteGestor, {
+      administradoraId: admSemCampanha.id,
+      nomePlano: "Plano Sem Campanha",
+      creditoMin: 50000,
+      creditoMax: 150000,
+      prazoMeses: 60,
+      taxaAdministracaoPercentual: 18,
+    });
+
+    const campanhaVencida = await criarCampanhaIncentivo(clienteGestor, {
+      administradoraId: admComCampanha.id,
+      nome: "Campanha Vencida",
+      bonusPercentual: 50,
+      vigenciaInicio: "2019-01-01",
+      vigenciaFim: "2020-12-31",
+    });
+
+    const ofertaComCampanha = await criarOfertaAdministradora(clienteGestor, {
+      administradoraId: admComCampanha.id,
+      planoId: planoComCampanha.id,
+      campanhaId: campanhaVencida.id,
+      comissaoPercentual: 3,
+      fonte: "manual",
+    });
+    const ofertaSemCampanha = await criarOfertaAdministradora(clienteGestor, {
+      administradoraId: admSemCampanha.id,
+      planoId: planoSemCampanha.id,
+      comissaoPercentual: 4,
+      fonte: "manual",
+    });
+
+    await validarOferta(clienteGestor, ofertaComCampanha.id);
+    await validarOferta(clienteGestor, ofertaSemCampanha.id);
+
+    const resultado = await recomendarAdministradoras(clienteGestor, {
+      creditoDesejado: 100000,
+      prazoDesejadoMeses: 60,
+    });
+
+    const resultadoComCampanha = resultado.find((r) => r.ofertaId === ofertaComCampanha.id);
+    const resultadoSemCampanha = resultado.find((r) => r.ofertaId === ofertaSemCampanha.id);
+
+    expect(resultadoComCampanha).toBeDefined();
+    expect(resultadoSemCampanha).toBeDefined();
+    // Both ofertas share the same prazo (60), so adequacao is identical for both and
+    // scoreFinal ordering is driven entirely by resultadoComercial (comissaoEfetiva).
+    // Comissão efetiva correta: 3 (sem bônus, campanha vencida) vs 4 (sem campanha) —
+    // a sem-campanha deve ranquear melhor. Se o bônus vencido (50) fosse indevidamente
+    // aplicado, a comissão efetiva com campanha (3 + 50 = 53) dominaria e inverteria
+    // esta comparação, mesmo com outras ofertas elegíveis de outros testes no pool.
+    expect(resultadoSemCampanha!.resultadoComercial).toBeGreaterThan(
+      resultadoComCampanha!.resultadoComercial
+    );
+    expect(resultadoSemCampanha!.scoreFinal).toBeGreaterThan(resultadoComCampanha!.scoreFinal);
+  });
+
+  it("usa os pesos vigentes em politica_recomendacao_consorcio, não pesos fixos no código", async () => {
+    const sufixo = Date.now();
+
+    const admA = await criarAdministradora(clienteGestor, { nome: `Administradora Pesos A ${sufixo}` });
+    const admB = await criarAdministradora(clienteGestor, { nome: `Administradora Pesos B ${sufixo}` });
+
+    const planoA = await criarPlanoConsorcio(clienteGestor, {
+      administradoraId: admA.id,
+      nomePlano: "Plano Pesos A",
+      creditoMin: 50000,
+      creditoMax: 150000,
+      prazoMeses: 60,
+      taxaAdministracaoPercentual: 18,
+    });
+    const planoB = await criarPlanoConsorcio(clienteGestor, {
+      administradoraId: admB.id,
+      nomePlano: "Plano Pesos B",
+      creditoMin: 50000,
+      creditoMax: 150000,
+      prazoMeses: 80,
+      taxaAdministracaoPercentual: 16,
+    });
+
+    const ofertaA = await criarOfertaAdministradora(clienteGestor, {
+      administradoraId: admA.id,
+      planoId: planoA.id,
+      comissaoPercentual: 3,
+      fonte: "manual",
+    });
+    const ofertaB = await criarOfertaAdministradora(clienteGestor, {
+      administradoraId: admB.id,
+      planoId: planoB.id,
+      comissaoPercentual: 6,
+      fonte: "manual",
+    });
+
+    await validarOferta(clienteGestor, ofertaA.id);
+    await validarOferta(clienteGestor, ofertaB.id);
+
+    const { data: politicaOriginal, error: erroPolitica } = await clienteGestor
+      .from("politica_recomendacao_consorcio")
+      .select("id, peso_adequacao, peso_resultado_comercial")
+      .eq("vigente", true)
+      .single();
+    if (erroPolitica) throw erroPolitica;
+
+    try {
+      const { error: erroUpdate } = await clienteGestor
+        .from("politica_recomendacao_consorcio")
+        .update({ peso_adequacao: 1, peso_resultado_comercial: 0 })
+        .eq("id", politicaOriginal.id);
+      if (erroUpdate) throw erroUpdate;
+
+      const resultado = await recomendarAdministradoras(clienteGestor, {
+        creditoDesejado: 100000,
+        prazoDesejadoMeses: 60,
+      });
+
+      const resultadoA = resultado.find((r) => r.ofertaId === ofertaA.id);
+      const resultadoB = resultado.find((r) => r.ofertaId === ofertaB.id);
+
+      expect(resultadoA).toBeDefined();
+      expect(resultadoB).toBeDefined();
+      // With peso_adequacao=1, peso_resultado_comercial=0, A (adequacao=1) must
+      // now outrank B (adequacao≈0.667), reversing the first test's ranking —
+      // this only holds if the code reads politica from the DB, not a constant.
+      expect(resultadoA!.scoreFinal).toBeGreaterThan(resultadoB!.scoreFinal);
+    } finally {
+      const { error: erroRestaura } = await clienteGestor
+        .from("politica_recomendacao_consorcio")
+        .update({
+          peso_adequacao: politicaOriginal.peso_adequacao,
+          peso_resultado_comercial: politicaOriginal.peso_resultado_comercial,
+        })
+        .eq("id", politicaOriginal.id);
+      if (erroRestaura) throw erroRestaura;
+    }
   });
 });
