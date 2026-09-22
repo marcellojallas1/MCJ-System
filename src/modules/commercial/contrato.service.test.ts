@@ -140,4 +140,49 @@ describe("contrato.service", () => {
 
     expect(error).not.toBeNull();
   });
+
+  it("RLS impede reapontar contrato via UPDATE para proposta de outra marca", async () => {
+    const pessoaCapital = await criarPessoaFisica(clienteCapital, {
+      nomeCompleto: "Cliente Capital Contrato Proprio",
+      marcaEntradaId: 4,
+    });
+    const oportunidadeCapital = await criarOportunidade(clienteCapital, {
+      pessoaFisicaId: pessoaCapital.id,
+      marcaId: 4,
+      produto: "consorcio",
+    });
+    const propostaCapital = await criarProposta(clienteCapital, {
+      oportunidadeId: oportunidadeCapital.id,
+      itens: [{ descricao: "Cota", quantidade: 1, precoUnitario: 25000 }],
+    });
+    await aprovarProposta(clienteCapital, propostaCapital.id);
+    const contratoCapital = await criarContrato(clienteCapital, {
+      propostaId: propostaCapital.id,
+    });
+
+    const pessoaAmazon = await criarPessoaFisica(clienteAmazon, {
+      nomeCompleto: "Cliente Amazon Contrato Alvo",
+      marcaEntradaId: 2,
+    });
+    const oportunidadeAmazon = await criarOportunidade(clienteAmazon, {
+      pessoaFisicaId: pessoaAmazon.id,
+      marcaId: 2,
+      produto: "consorcio",
+    });
+    const propostaAmazon = await criarProposta(clienteAmazon, {
+      oportunidadeId: oportunidadeAmazon.id,
+      itens: [{ descricao: "Cota Amazon", quantidade: 1, precoUnitario: 15000 }],
+    });
+    await aprovarProposta(clienteAmazon, propostaAmazon.id);
+
+    const { error } = await clienteCapital
+      .from("contrato")
+      .update({
+        proposta_id: propostaAmazon.id,
+        oportunidade_id: oportunidadeAmazon.id,
+      })
+      .eq("id", contratoCapital.id);
+
+    expect(error).not.toBeNull();
+  });
 });
