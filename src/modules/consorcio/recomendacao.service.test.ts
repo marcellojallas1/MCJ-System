@@ -67,7 +67,7 @@ beforeAll(async () => {
 });
 
 describe("recomendacao.service", () => {
-  it("classifica ofertas elegíveis por 50% adequação + 50% resultado comercial", async () => {
+  it("classifica ofertas elegíveis pela ponderação vigente de adequação e resultado comercial", async () => {
     const sufixo = Date.now();
 
     const admA = await criarAdministradora(clienteGestor, { nome: `Administradora A ${sufixo}` });
