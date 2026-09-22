@@ -234,8 +234,8 @@ after insert or update or delete on consorcio_contemplacao
 for each row execute function public.registrar_auditoria();
 
 -- Placed after consorcio_contemplacao table because it references that table in the with check clause.
--- 'vencedor' só é aceito quando já existe a contemplação que aponta para
--- este lance (é o trigger aplicar_contemplacao quem faz essa transição).
+-- 'vencedor' is required exactly when a contemplação references this lance — only the
+-- aplicar_contemplacao trigger produces it, and it can never be undone.
 create policy "update_consorcio_lance_por_marca"
 on consorcio_lance for update
 to authenticated
@@ -252,12 +252,9 @@ with check (
     where ct.id = consorcio_lance.cota_id
       and public.tem_acesso_marca(ct.marca_id)
   )
-  and (
-    status <> 'vencedor'
-    or exists (
-      select 1 from consorcio_contemplacao cc
-      where cc.lance_id = consorcio_lance.id
-    )
+  and (status = 'vencedor') = exists (
+    select 1 from consorcio_contemplacao cc
+    where cc.lance_id = consorcio_lance.id
   )
 );
 
