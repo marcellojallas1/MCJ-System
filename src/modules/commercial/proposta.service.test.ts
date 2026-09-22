@@ -145,4 +145,49 @@ describe("proposta.service", () => {
     const aprovada = await aprovarProposta(clienteCapital, proposta.id);
     expect(aprovada.status).toBe("aprovada");
   });
+
+  it("RLS impede inserir proposta com oportunidade_id de outra marca via API direta", async () => {
+    const pessoaAmazon = await criarPessoaFisica(clienteAmazon, {
+      nomeCompleto: "Cliente Amazon Parent Consistency",
+      marcaEntradaId: 2,
+    });
+    const oportunidadeAmazon = await criarOportunidade(clienteAmazon, {
+      pessoaFisicaId: pessoaAmazon.id,
+      marcaId: 2,
+      produto: "consorcio",
+    });
+
+    const { error } = await clienteCapital.from("proposta").insert({
+      oportunidade_id: oportunidadeAmazon.id,
+      marca_id: 4,
+      versao: 1,
+    });
+
+    expect(error).not.toBeNull();
+  });
+
+  it("RLS impede inserir proposta_item em proposta de outra marca via API direta", async () => {
+    const pessoaAmazon = await criarPessoaFisica(clienteAmazon, {
+      nomeCompleto: "Cliente Amazon Item Cross Marca",
+      marcaEntradaId: 2,
+    });
+    const oportunidadeAmazon = await criarOportunidade(clienteAmazon, {
+      pessoaFisicaId: pessoaAmazon.id,
+      marcaId: 2,
+      produto: "consorcio",
+    });
+    const propostaAmazon = await criarProposta(clienteAmazon, {
+      oportunidadeId: oportunidadeAmazon.id,
+      itens: [{ descricao: "Item Amazon", quantidade: 1, precoUnitario: 100 }],
+    });
+
+    const { error } = await clienteCapital.from("proposta_item").insert({
+      proposta_id: propostaAmazon.id,
+      descricao: "Tentativa cross-marca",
+      quantidade: 1,
+      preco_unitario: 1,
+    });
+
+    expect(error).not.toBeNull();
+  });
 });

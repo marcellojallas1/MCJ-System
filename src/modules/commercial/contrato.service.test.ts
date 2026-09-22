@@ -12,6 +12,7 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 let admin: SupabaseClient<Database>;
 let clienteCapital: SupabaseClient<Database>;
+let clienteAmazon: SupabaseClient<Database>;
 
 async function criarUsuarioDeTeste(
   admin: SupabaseClient<Database>,
@@ -61,6 +62,12 @@ beforeAll(async () => {
     "consultor_capital",
     "capital"
   );
+  clienteAmazon = await criarUsuarioDeTeste(
+    admin,
+    `contrato-amazon-${Date.now()}@teste.mcj`,
+    "consultor_capital",
+    "amazon"
+  );
 });
 
 describe("contrato.service", () => {
@@ -107,5 +114,30 @@ describe("contrato.service", () => {
     expect(contrato.marca_id).toBe(4);
 
     await expect(criarContrato(clienteCapital, { propostaId: proposta.id })).rejects.toThrow();
+  });
+
+  it("RLS impede inserir contrato para proposta de outra marca via API direta", async () => {
+    const pessoaAmazon = await criarPessoaFisica(clienteAmazon, {
+      nomeCompleto: "Cliente Amazon Contrato Cross Marca",
+      marcaEntradaId: 2,
+    });
+    const oportunidadeAmazon = await criarOportunidade(clienteAmazon, {
+      pessoaFisicaId: pessoaAmazon.id,
+      marcaId: 2,
+      produto: "planejamento_patrimonial",
+    });
+    const propostaAmazon = await criarProposta(clienteAmazon, {
+      oportunidadeId: oportunidadeAmazon.id,
+      itens: [{ descricao: "Planejamento Amazon", quantidade: 1, precoUnitario: 3000 }],
+    });
+    await aprovarProposta(clienteAmazon, propostaAmazon.id);
+
+    const { error } = await clienteCapital.from("contrato").insert({
+      oportunidade_id: oportunidadeAmazon.id,
+      proposta_id: propostaAmazon.id,
+      marca_id: 4,
+    });
+
+    expect(error).not.toBeNull();
   });
 });
