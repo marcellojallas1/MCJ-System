@@ -21,6 +21,10 @@ import { criarPropostaConsorcio, type PropostaConsorcio } from "./proposta-conso
 
 export const SUPABASE_URL = "http://127.0.0.1:54321";
 
+export function amanhaIso(): string {
+  return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+}
+
 export function criarClienteAdmin(): SupabaseClient<Database> {
   return createClient<Database>(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
@@ -105,6 +109,7 @@ export async function criarOfertaValidada(
     campanhaId: campanha?.id,
     comissaoPercentual: opcoes.comissaoPercentual ?? 5,
     fonte: "manual",
+    vigenciaFim: amanhaIso(),
   });
   const oferta = await validarOferta(clienteGestor, ofertaColetada.id);
 

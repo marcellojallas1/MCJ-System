@@ -7,7 +7,7 @@ import { criarProposta, aprovarProposta } from "@/modules/commercial/proposta.se
 import { criarOfertaAdministradora } from "./oferta.service";
 import { registrarRecomendacao } from "./recomendacao.service";
 import { criarPropostaConsorcio, obterCondicaoPorProposta } from "./proposta-consorcio.service";
-import { criarClienteAdmin, criarUsuarioDeTeste, criarOfertaValidada } from "./test-fixtures";
+import { criarClienteAdmin, criarUsuarioDeTeste, criarOfertaValidada, amanhaIso } from "./test-fixtures";
 
 let clienteGestor: SupabaseClient<Database>;
 let clienteConsultor: SupabaseClient<Database>;
@@ -130,6 +130,7 @@ describe("criarPropostaConsorcio", () => {
       planoId: plano.id,
       comissaoPercentual: 5,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const oportunidade = await criarOportunidadeConsorcio("Cliente Oferta Invalida");
 

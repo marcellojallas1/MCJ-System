@@ -8,6 +8,7 @@ import {
 } from "./administradora.service";
 import { criarOfertaAdministradora, validarOferta } from "./oferta.service";
 import { recomendarAdministradoras } from "./recomendacao.service";
+import { amanhaIso } from "./test-fixtures";
 
 const SUPABASE_URL = "http://127.0.0.1:54321";
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -95,12 +96,14 @@ describe("recomendacao.service", () => {
       planoId: planoA.id,
       comissaoPercentual: 3,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const ofertaB = await criarOfertaAdministradora(clienteGestor, {
       administradoraId: admB.id,
       planoId: planoB.id,
       comissaoPercentual: 6,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     await validarOferta(clienteGestor, ofertaA.id);
@@ -156,6 +159,7 @@ describe("recomendacao.service", () => {
       planoId: planoForaFaixa.id,
       comissaoPercentual: 10,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     await validarOferta(clienteGestor, ofertaForaFaixa.id);
 
@@ -172,6 +176,7 @@ describe("recomendacao.service", () => {
       planoId: planoNaoValidado.id,
       comissaoPercentual: 10,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     const resultado = await recomendarAdministradoras(clienteGestor, {
@@ -224,12 +229,14 @@ describe("recomendacao.service", () => {
       campanhaId: campanhaVencida.id,
       comissaoPercentual: 3,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const ofertaSemCampanha = await criarOfertaAdministradora(clienteGestor, {
       administradoraId: admSemCampanha.id,
       planoId: planoSemCampanha.id,
       comissaoPercentual: 4,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     await validarOferta(clienteGestor, ofertaComCampanha.id);
@@ -285,12 +292,14 @@ describe("recomendacao.service", () => {
       planoId: planoA.id,
       comissaoPercentual: 3,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
     const ofertaB = await criarOfertaAdministradora(clienteGestor, {
       administradoraId: admB.id,
       planoId: planoB.id,
       comissaoPercentual: 6,
       fonte: "manual",
+      vigenciaFim: amanhaIso(),
     });
 
     await validarOferta(clienteGestor, ofertaA.id);
