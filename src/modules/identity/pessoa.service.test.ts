@@ -22,23 +22,27 @@ async function criarUsuarioDeTeste(
   });
   if (error) throw error;
 
-  const { data: papel } = await admin
+  const { data: papel, error: papelError } = await admin
     .from("papel")
     .select("id")
     .eq("codigo", papelCodigo)
     .single();
-  const { data: marca } = await admin
+  if (papelError) throw papelError;
+
+  const { data: marca, error: marcaError } = await admin
     .from("marca")
     .select("id")
     .eq("codigo", marcaCodigo)
     .single();
+  if (marcaError) throw marcaError;
 
-  await admin.from("usuario_interno").insert({
+  const { error: usuarioInternoError } = await admin.from("usuario_interno").insert({
     id: data.user.id,
     nome: email,
     papel_id: papel!.id,
     marca_id: marca!.id,
   });
+  if (usuarioInternoError) throw usuarioInternoError;
 
   const cliente = createClient(SUPABASE_URL, ANON_KEY);
   await cliente.auth.signInWithPassword({ email, password: "senha-teste-123" });
