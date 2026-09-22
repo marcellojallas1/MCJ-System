@@ -34,6 +34,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      administradora: {
+        Row: {
+          cnpj: string | null
+          criado_em: string
+          id: string
+          nome: string
+          situacao: string
+        }
+        Insert: {
+          cnpj?: string | null
+          criado_em?: string
+          id?: string
+          nome: string
+          situacao?: string
+        }
+        Update: {
+          cnpj?: string | null
+          criado_em?: string
+          id?: string
+          nome?: string
+          situacao?: string
+        }
+        Relationships: []
+      }
       auditoria_evento: {
         Row: {
           acao: string
@@ -66,6 +90,44 @@ export type Database = {
           tabela?: string
         }
         Relationships: []
+      }
+      campanha_incentivo: {
+        Row: {
+          administradora_id: string
+          bonus_percentual: number
+          criado_em: string
+          id: string
+          nome: string
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          administradora_id: string
+          bonus_percentual?: number
+          criado_em?: string
+          id?: string
+          nome: string
+          vigencia_fim?: string | null
+          vigencia_inicio: string
+        }
+        Update: {
+          administradora_id?: string
+          bonus_percentual?: number
+          criado_em?: string
+          id?: string
+          nome?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanha_incentivo_administradora_id_fkey"
+            columns: ["administradora_id"]
+            isOneToOne: false
+            referencedRelation: "administradora"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contrato: {
         Row: {
@@ -139,6 +201,93 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      oferta_administradora: {
+        Row: {
+          administradora_id: string
+          campanha_id: string | null
+          comissao_percentual: number
+          criado_em: string
+          criado_por: string | null
+          estado: string
+          fonte: string
+          id: string
+          plano_id: string
+          texto_origem: string | null
+          validado_em: string | null
+          validado_por: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          administradora_id: string
+          campanha_id?: string | null
+          comissao_percentual: number
+          criado_em?: string
+          criado_por?: string | null
+          estado?: string
+          fonte: string
+          id?: string
+          plano_id: string
+          texto_origem?: string | null
+          validado_em?: string | null
+          validado_por?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Update: {
+          administradora_id?: string
+          campanha_id?: string | null
+          comissao_percentual?: number
+          criado_em?: string
+          criado_por?: string | null
+          estado?: string
+          fonte?: string
+          id?: string
+          plano_id?: string
+          texto_origem?: string | null
+          validado_em?: string | null
+          validado_por?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oferta_administradora_administradora_id_fkey"
+            columns: ["administradora_id"]
+            isOneToOne: false
+            referencedRelation: "administradora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oferta_administradora_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanha_incentivo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oferta_administradora_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuario_interno"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oferta_administradora_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "plano_consorcio_administradora"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oferta_administradora_validado_por_fkey"
+            columns: ["validado_por"]
+            isOneToOne: false
+            referencedRelation: "usuario_interno"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       oportunidade: {
         Row: {
@@ -328,6 +477,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plano_consorcio_administradora: {
+        Row: {
+          administradora_id: string
+          credito_max: number
+          credito_min: number
+          criado_em: string
+          id: string
+          nome_plano: string
+          prazo_meses: number
+          taxa_administracao_percentual: number
+        }
+        Insert: {
+          administradora_id: string
+          credito_max: number
+          credito_min: number
+          criado_em?: string
+          id?: string
+          nome_plano: string
+          prazo_meses: number
+          taxa_administracao_percentual: number
+        }
+        Update: {
+          administradora_id?: string
+          credito_max?: number
+          credito_min?: number
+          criado_em?: string
+          id?: string
+          nome_plano?: string
+          prazo_meses?: number
+          taxa_administracao_percentual?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plano_consorcio_administradora_administradora_id_fkey"
+            columns: ["administradora_id"]
+            isOneToOne: false
+            referencedRelation: "administradora"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      politica_recomendacao_consorcio: {
+        Row: {
+          criado_em: string
+          id: string
+          peso_adequacao: number
+          peso_resultado_comercial: number
+          vigente: boolean
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          peso_adequacao: number
+          peso_resultado_comercial: number
+          vigente?: boolean
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          peso_adequacao?: number
+          peso_resultado_comercial?: number
+          vigente?: boolean
+        }
+        Relationships: []
       }
       proposta: {
         Row: {
