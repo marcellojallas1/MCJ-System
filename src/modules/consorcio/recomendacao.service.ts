@@ -54,50 +54,45 @@ export async function calcularRecomendacao(
 
   const hoje = hojeIso();
 
+  const LIMITE_OFERTAS = 1000;
+
   const { data: ofertas, error: erroOfertas } = await client
     .from("oferta_administradora")
     .select(
-      "id, comissao_percentual, administradora:administradora_id(id, nome, situacao), plano:plano_id(id, credito_min, credito_max, prazo_meses), campanha:campanha_id(bonus_percentual, vigencia_inicio, vigencia_fim)"
+      "id, comissao_percentual, administradora:administradora_id!inner(id, nome, situacao), plano:plano_id!inner(id, credito_min, credito_max, prazo_meses), campanha:campanha_id(bonus_percentual, vigencia_inicio, vigencia_fim)"
     )
     .eq("estado", "validado")
     .lte("vigencia_inicio", hoje)
     .or(`vigencia_fim.is.null,vigencia_fim.gte.${hoje}`)
+    .eq("administradora.situacao", "ativa")
+    .lte("plano.credito_min", dadosValidados.creditoDesejado)
+    .gte("plano.credito_max", dadosValidados.creditoDesejado)
     .order("id")
-    .limit(1000);
+    .limit(LIMITE_OFERTAS);
   if (erroOfertas) throw erroOfertas;
-  if (!ofertas || ofertas.length === 0) return { politica, resultados: [] };
+  if (ofertas.length === LIMITE_OFERTAS) {
+    throw new Error("Limite de ofertas elegíveis atingido: refine os filtros antes de recomendar");
+  }
+  if (ofertas.length === 0) return { politica, resultados: [] };
 
-  const elegiveis = ofertas
-    .map((oferta) => {
-      const administradora = oferta.administradora;
-      const plano = oferta.plano;
-      if (!administradora || !plano) {
-        throw new Error(
-          `Inconsistência de dados: oferta ${oferta.id} referencia administradora ou plano inexistente`
-        );
-      }
-      if (administradora.situacao !== "ativa") return null;
-      if (
-        dadosValidados.creditoDesejado < plano.credito_min ||
-        dadosValidados.creditoDesejado > plano.credito_max
-      )
-        return null;
+  const elegiveis = ofertas.map((oferta) => {
+    const administradora = oferta.administradora;
+    const plano = oferta.plano;
 
-      const campanha = oferta.campanha ?? undefined;
-      const campanhaVigente =
-        campanha !== undefined && estaVigente(campanha.vigencia_inicio, campanha.vigencia_fim, hoje);
-      const comissaoEfetiva = oferta.comissao_percentual + (campanhaVigente ? campanha.bonus_percentual : 0);
+    const campanha = oferta.campanha ?? undefined;
+    const campanhaVigente =
+      campanha !== undefined && estaVigente(campanha.vigencia_inicio, campanha.vigencia_fim, hoje);
+    const comissaoEfetiva = oferta.comissao_percentual + (campanhaVigente ? campanha.bonus_percentual : 0);
 
-      return {
-        ofertaId: oferta.id,
-        administradoraId: administradora.id,
-        administradoraNome: administradora.nome,
-        planoId: plano.id,
-        prazoMeses: plano.prazo_meses,
-        comissaoEfetiva,
-      };
-    })
-    .filter((o): o is NonNullable<typeof o> => o !== null);
+    return {
+      ofertaId: oferta.id,
+      administradoraId: administradora.id,
+      administradoraNome: administradora.nome,
+      planoId: plano.id,
+      prazoMeses: plano.prazo_meses,
+      comissaoEfetiva,
+    };
+  });
 
   if (elegiveis.length === 0) return { politica, resultados: [] };
 
