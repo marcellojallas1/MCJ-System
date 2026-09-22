@@ -13,6 +13,11 @@ import {
   type OfertaAdministradora,
 } from "./oferta.service";
 import { hojeIso } from "./datas";
+import { criarPessoaFisica } from "@/modules/identity/pessoa.service";
+import { criarOportunidade } from "@/modules/commercial/oportunidade.service";
+import { aprovarProposta } from "@/modules/commercial/proposta.service";
+import { criarContrato, type Contrato } from "@/modules/commercial/contrato.service";
+import { criarPropostaConsorcio, type PropostaConsorcio } from "./proposta-consorcio.service";
 
 export const SUPABASE_URL = "http://127.0.0.1:54321";
 
@@ -104,4 +109,38 @@ export async function criarOfertaValidada(
   const oferta = await validarOferta(clienteGestor, ofertaColetada.id);
 
   return { administradora, plano, oferta };
+}
+
+export async function prepararContratoConsorcio(
+  clienteGestor: SupabaseClient<Database>,
+  clienteConsultor: SupabaseClient<Database>,
+  opcoes: { credito?: number; prazoMeses?: number } = {}
+): Promise<{
+  administradora: Administradora;
+  plano: PlanoConsorcio;
+  oferta: OfertaAdministradora;
+  proposta: PropostaConsorcio;
+  contrato: Contrato;
+}> {
+  const { administradora, plano, oferta } = await criarOfertaValidada(clienteGestor, {
+    prazoMeses: opcoes.prazoMeses ?? 12,
+  });
+  const pessoa = await criarPessoaFisica(clienteConsultor, {
+    nomeCompleto: `Cliente Cota ${Date.now()}`,
+    marcaEntradaId: 4,
+  });
+  const oportunidade = await criarOportunidade(clienteConsultor, {
+    pessoaFisicaId: pessoa.id,
+    marcaId: 4,
+    produto: "consorcio",
+  });
+  const proposta = await criarPropostaConsorcio(clienteConsultor, {
+    oportunidadeId: oportunidade.id,
+    ofertaId: oferta.id,
+    credito: opcoes.credito ?? 100000,
+  });
+  await aprovarProposta(clienteConsultor, proposta.id);
+  const contrato = await criarContrato(clienteConsultor, { propostaId: proposta.id });
+
+  return { administradora, plano, oferta, proposta, contrato };
 }
