@@ -9,5 +9,8 @@ export default defineConfig({
   },
   test: {
     exclude: ["**/node_modules/**", "**/.worktrees/**", "**/dist/**", "**/.next/**"],
+    // Os arquivos compartilham um único banco local e alguns alteram estado
+    // global (política de recomendação vigente) — rodar em série.
+    fileParallelism: false,
   },
 });
