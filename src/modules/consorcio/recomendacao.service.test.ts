@@ -106,6 +106,13 @@ describe("recomendacao.service", () => {
     await validarOferta(clienteGestor, ofertaA.id);
     await validarOferta(clienteGestor, ofertaB.id);
 
+    const { data: politica, error: erroPolitica } = await clienteGestor
+      .from("politica_recomendacao_consorcio")
+      .select("peso_adequacao, peso_resultado_comercial")
+      .eq("vigente", true)
+      .single();
+    if (erroPolitica) throw erroPolitica;
+
     const resultado = await recomendarAdministradoras(clienteGestor, {
       creditoDesejado: 100000,
       prazoDesejadoMeses: 60,
@@ -118,9 +125,16 @@ describe("recomendacao.service", () => {
     expect(resultadoB).toBeDefined();
     expect(resultadoA!.adequacao).toBe(1);
     expect(resultadoB!.adequacao).toBeCloseTo(1 - 20 / 60, 5);
-    expect(resultadoB!.resultadoComercial).toBe(1);
-    expect(resultadoA!.resultadoComercial).toBe(0);
-    expect(resultadoB!.scoreFinal).toBeGreaterThan(resultadoA!.scoreFinal);
+    // resultadoComercial é normalizado min-max entre TODAS as ofertas elegíveis
+    // no banco (compartilhado entre suítes), então só a ordem relativa e a
+    // fórmula de ponderação são verificadas aqui — não valores absolutos.
+    expect(resultadoB!.resultadoComercial).toBeGreaterThan(resultadoA!.resultadoComercial);
+    for (const r of [resultadoA!, resultadoB!]) {
+      expect(r.scoreFinal).toBeCloseTo(
+        politica.peso_adequacao * r.adequacao + politica.peso_resultado_comercial * r.resultadoComercial,
+        10
+      );
+    }
   });
 
   it("exclui ofertas fora da faixa de crédito e ofertas não validadas", async () => {
