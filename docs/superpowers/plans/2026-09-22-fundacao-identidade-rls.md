@@ -113,7 +113,7 @@ git commit -m "chore: initialize Supabase local dev stack"
 - Create: `supabase/migrations/20260922000001_identity_core.sql`
 
 **Interfaces:**
-- Produces: tabelas `marca`, `pessoa_fisica`, `pessoa_juridica`, `vinculo_pf_pj`; função `next_mcj_id(prefixo text) returns text`.
+- Produces: tabelas `marca`, `pessoa_fisica`, `pessoa_juridica`, `vinculo_pf_pj`; função `next_mcj_id(prefixo text) returns text`. RLS habilitado (sem políticas) em `pessoa_fisica`, `pessoa_juridica` e `vinculo_pf_pj` — políticas reais chegam na Task 5.
 
 - [ ] **Step 1: Escrever a migração**
 
@@ -176,6 +176,14 @@ create table vinculo_pf_pj (
   criado_em timestamptz not null default now(),
   unique (pessoa_fisica_id, pessoa_juridica_id, papel)
 );
+
+-- RLS habilitado sem políticas ainda: nega acesso por padrão (via API) até a
+-- Task 5 adicionar as políticas. Isso satisfaz o Global Constraint de que
+-- toda tabela de negócio tem RLS habilitado antes de a task que a cria ser
+-- concluída, sem expor dados no meio tempo.
+alter table pessoa_fisica enable row level security;
+alter table pessoa_juridica enable row level security;
+alter table vinculo_pf_pj enable row level security;
 ```
 
 - [ ] **Step 2: Aplicar a migração localmente**
@@ -207,7 +215,7 @@ git commit -m "feat(db): add identity core tables (marca, pessoa_fisica, pessoa_
 
 **Interfaces:**
 - Consumes: `marca` (Task 3).
-- Produces: tabelas `papel`, `usuario_interno`; função `custom_access_token_hook(event jsonb) returns jsonb` registrada como Auth Hook, injetando `papel` e `marca` no JWT do usuário autenticado.
+- Produces: tabelas `papel`, `usuario_interno`; função `custom_access_token_hook(event jsonb) returns jsonb` registrada como Auth Hook, injetando `papel` e `marca` no JWT do usuário autenticado. RLS habilitado em `marca`/`papel` (leitura liberada a autenticados) e em `usuario_interno` (sem política ainda, nega tudo por padrão).
 
 - [ ] **Step 1: Escrever a migração**
 
@@ -238,6 +246,8 @@ create or replace function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql
 stable
+security definer
+set search_path = ''
 as $$
 declare
   claims jsonb;
@@ -245,9 +255,9 @@ declare
 begin
   select p.codigo as papel_codigo, m.codigo as marca_codigo
   into usuario
-  from usuario_interno u
-  join papel p on p.id = u.papel_id
-  join marca m on m.id = u.marca_id
+  from public.usuario_interno u
+  join public.papel p on p.id = u.papel_id
+  join public.marca m on m.id = u.marca_id
   where u.id = (event->>'user_id')::uuid
     and u.ativo = true;
 
@@ -273,6 +283,27 @@ revoke execute on function public.custom_access_token_hook from authenticated, a
 grant all on table public.usuario_interno to supabase_auth_admin;
 grant all on table public.papel to supabase_auth_admin;
 grant all on table public.marca to supabase_auth_admin;
+
+-- marca e papel são tabelas de referência: leitura liberada a qualquer
+-- usuário autenticado (necessário para popular seletores na UI), sem
+-- política de escrita — só migração altera essas tabelas.
+alter table marca enable row level security;
+alter table papel enable row level security;
+
+create policy "select_marca_autenticado"
+on marca for select
+to authenticated
+using (true);
+
+create policy "select_papel_autenticado"
+on papel for select
+to authenticated
+using (true);
+
+-- usuario_interno revela estrutura interna de equipe: RLS habilitado sem
+-- política própria ainda (nega tudo por padrão via API). Uma política de
+-- leitura para admin/gestor fica para um plano futuro de governança.
+alter table usuario_interno enable row level security;
 ```
 
 - [ ] **Step 2: Registrar o Auth Hook no `supabase/config.toml`**
@@ -330,8 +361,8 @@ as $$
   select coalesce(auth.jwt() ->> 'marca', '');
 $$;
 
-alter table pessoa_fisica enable row level security;
-alter table pessoa_juridica enable row level security;
+-- RLS já foi habilitado na Task 3 (20260922000001_identity_core.sql);
+-- aqui só adicionamos as políticas.
 
 create policy "select_pessoa_fisica_por_marca"
 on pessoa_fisica for select
@@ -457,13 +488,13 @@ git commit -m "feat: add Supabase browser and server clients"
 - Test: `src/modules/identity/pessoa.service.test.ts`
 
 **Interfaces:**
-- Consumes: `createServerSupabaseClient()` (Task 6); tabela `pessoa_fisica` (Task 3); RLS de `pessoa_fisica` (Task 5).
+- Consumes: tabela `pessoa_fisica` (Task 3); RLS de `pessoa_fisica` (Task 5); tipo `SupabaseClient` de `@supabase/supabase-js` (instalado na Task 6). O serviço recebe um `SupabaseClient` já autenticado como parâmetro — não instancia cliente próprio, nem chama `createServerSupabaseClient()` diretamente (isso é papel do chamador, ex.: Task 8).
 - Produces: `criarPessoaFisicaSchema: ZodSchema`, `criarPessoaFisica(client: SupabaseClient, input: CriarPessoaFisicaInput): Promise<PessoaFisica>`, `listarPessoasFisicas(client: SupabaseClient): Promise<PessoaFisica[]>`, tipo `PessoaFisica`.
 
 - [ ] **Step 1: Instalar Vitest**
 
 ```bash
-npm install -D vitest dotenv
+npm install -D vitest dotenv-cli
 ```
 
 Adicione ao `package.json` em `scripts`: `"test": "vitest run"`.
@@ -748,7 +779,7 @@ git commit -m "feat(identity): add minimal UI to create and list pessoa_fisica"
 - Test: `src/modules/governance/auditoria.test.ts`
 
 **Interfaces:**
-- Consumes: `pessoa_fisica`, `pessoa_juridica` (Task 3).
+- Consumes: `pessoa_fisica`, `pessoa_juridica` (Task 3); `public.jwt_papel()` (Task 5), usado na política de leitura de `auditoria_evento`.
 - Produces: tabela `auditoria_evento`; função de trigger `public.registrar_auditoria()`; triggers em `pessoa_fisica` e `pessoa_juridica`.
 
 - [ ] **Step 1: Escrever a migração**
@@ -778,9 +809,10 @@ create or replace function public.registrar_auditoria()
 returns trigger
 language plpgsql
 security definer
+set search_path = ''
 as $$
 begin
-  insert into auditoria_evento (tabela, registro_id, acao, dados_anteriores, dados_novos, autor_id)
+  insert into public.auditoria_evento (tabela, registro_id, acao, dados_anteriores, dados_novos, autor_id)
   values (
     tg_table_name,
     coalesce(new.id, old.id),
