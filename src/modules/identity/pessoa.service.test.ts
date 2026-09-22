@@ -1,20 +1,21 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 import { criarPessoaFisica, listarPessoasFisicas } from "./pessoa.service";
 
 const SUPABASE_URL = "http://127.0.0.1:54321";
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-let clienteCapital: SupabaseClient;
-let clienteAmazon: SupabaseClient;
+let clienteCapital: SupabaseClient<Database>;
+let clienteAmazon: SupabaseClient<Database>;
 
 async function criarUsuarioDeTeste(
-  admin: SupabaseClient,
+  admin: SupabaseClient<Database>,
   email: string,
   papelCodigo: string,
   marcaCodigo: string
-): Promise<SupabaseClient> {
+): Promise<SupabaseClient<Database>> {
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: "senha-teste-123",
@@ -44,13 +45,13 @@ async function criarUsuarioDeTeste(
   });
   if (usuarioInternoError) throw usuarioInternoError;
 
-  const cliente = createClient(SUPABASE_URL, ANON_KEY);
+  const cliente = createClient<Database>(SUPABASE_URL, ANON_KEY);
   await cliente.auth.signInWithPassword({ email, password: "senha-teste-123" });
   return cliente;
 }
 
 beforeAll(async () => {
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY);
   clienteCapital = await criarUsuarioDeTeste(
     admin,
     `capital-${Date.now()}@teste.mcj`,

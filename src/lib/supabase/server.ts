@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import type { Database } from "./database.types";
 
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -19,8 +20,8 @@ export async function createServerSupabaseClient() {
             });
           } catch {
             // Called from a Server Component — safe to ignore when middleware
-            // is refreshing the session (middleware doesn't exist yet in this
-            // branch; this guard just prevents a hard crash until it does).
+            // is refreshing the session (no middleware yet in this codebase;
+            // this guard just prevents a hard crash until it exists).
           }
         },
       },
